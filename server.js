@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -11,13 +11,13 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://research-hub-lyart.vercel.app", // Your current Vercel URL
-      "https://research-hub-space.vercel.app", // Your new clean URL
+      "https://research-hub-lyart.vercel.app", 
+      "https://research-hub-space.vercel.app", 
     ],
     credentials: true,
   }),
 );
-// --- CONFIGURATION ---
+
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.SECRET_KEY;
 const MONGO_URI = process.env.MONGO_URI;
@@ -46,13 +46,12 @@ const History = mongoose.model(
   }),
 );
 
-// --- CONNECT TO DATABASE ---
 mongoose
   .connect(MONGO_URI)
   .then(() => console.log("✅ Database Connected Successfully"))
   .catch((err) => console.error("❌ Database Connection Error:", err));
 
-// --- 1. AUTHENTICATION ROUTES ---
+// --- AUTHENTICATION ROUTES ---
 app.post("/api/v1/google-login", async (req, res) => {
   try {
     const { name, email, profilePic } = req.body;
@@ -124,7 +123,7 @@ app.post("/api/v1/login", async (req, res) => {
   }
 });
 
-// --- 2. USER PROFILE UPDATE ---
+// --- USER PROFILE UPDATE ---
 app.put("/api/v1/user/update", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "No token provided" });
@@ -142,12 +141,11 @@ app.put("/api/v1/user/update", async (req, res) => {
   }
 });
 
-// --- 3. AI CHAT ROUTE (UPDATED FOR REAL-TIME STREAMING) ---
+// --- AI CHAT ROUTE (UPDATED FOR CONTEXTUAL MEMORY) ---
 app.post("/api/v1/ask", async (req, res) => {
-  const { question, displayQuestion, chatId, tier } = req.body;
+  const { messages, question, displayQuestion, chatId, tier } = req.body;
   const token = req.headers.authorization?.split(" ")[1];
 
-  // Set Headers for Streaming
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -163,14 +161,14 @@ app.post("/api/v1/ask", async (req, res) => {
         },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
-          messages: [
+          messages: messages || [
             {
               role: "system",
               content: "You are a research assistant. Provide direct answers.",
             },
             { role: "user", content: question },
           ],
-          stream: true, 
+          stream: true,
         }),
       },
     );
@@ -193,7 +191,6 @@ app.post("/api/v1/ask", async (req, res) => {
             const data = JSON.parse(line.substring(6));
             const content = data.choices[0]?.delta?.content || "";
             fullAnswer += content;
-            // Send content chunk to frontend
             res.write(`data: ${JSON.stringify({ content })}\n\n`);
           } catch (e) {
             continue;
@@ -202,7 +199,6 @@ app.post("/api/v1/ask", async (req, res) => {
       }
     }
 
-    // Save history after the stream is fully collected
     if (token) {
       try {
         const decoded = jwt.verify(token, SECRET_KEY);
@@ -224,7 +220,7 @@ app.post("/api/v1/ask", async (req, res) => {
   }
 });
 
-// --- 4. HISTORY ROUTES ---
+// --- HISTORY ROUTES ---
 app.get("/api/v1/history/:chatId", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Unauthorized" });
@@ -266,7 +262,6 @@ app.get("/api/v1/history", async (req, res) => {
   }
 });
 
-// --- RENAME CHAT TITLE ---
 app.put("/api/v1/history/rename", async (req, res) => {
   const { chatId, newTitle } = req.body;
   const token = req.headers.authorization?.split(" ")[1];
@@ -275,7 +270,6 @@ app.put("/api/v1/history/rename", async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    // Update all entries with this chatId for this user
     await History.updateMany(
       { userId: decoded.userId, chatId: chatId },
       { $set: { question: newTitle } },
@@ -286,7 +280,6 @@ app.put("/api/v1/history/rename", async (req, res) => {
   }
 });
 
-// --- DELETE SINGLE CHAT THREAD ---
 app.delete("/api/v1/history/:chatId", async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Unauthorized" });
