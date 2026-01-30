@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -8,7 +9,12 @@ const app = express();
 app.use(express.json());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://research-hub-lyart.vercel.app", // Your current Vercel URL
+      "https://research-hub-space.vercel.app", // Your new clean URL
+    ],
+    credentials: true,
   }),
 );
 // --- CONFIGURATION ---
@@ -164,7 +170,7 @@ app.post("/api/v1/ask", async (req, res) => {
             },
             { role: "user", content: question },
           ],
-          stream: true, // Enable streaming from Groq
+          stream: true, 
         }),
       },
     );
